@@ -3,6 +3,7 @@
 ## Table of Contents
 1. [Web Security Essentials](#web-security-essentials)
 2. [Detecting Web Attacks](#detecting-web-attacks)
+3. [Detecting Web Shells](#detecting-web-shells)
 
 ## Web Security Essentials
 ### Why Web?
@@ -114,3 +115,95 @@
 
     The answer is `IF User-Agent CONTAINS "BotTHM" THEN block`.
     
+
+## Detecting Web Shells
+### Web Shell Overview
+1. Which MITRE ATT&CK Persistence sub-technique are web shells associated with?
+
+    We can check this [website](https://attack.mitre.org/techniques/T1505/003/). The answer is `T1505.003`.
+
+2. What file extension is commonly used for web shells targeting Microsoft Exchange?
+
+    The answer is `.aspx`.
+
+### Anatomy of a Web Shell
+1. Access the shell and determine which account you have access to by running the whoami command.
+
+    The answer is `www-data`.
+
+2. List the directory contents and find the flag using the ls and cat commands.
+
+    The answer is `THM{W3b_Sh3ll_Usag3}`.
+
+### Log-Based Detection
+1. What is the part of the URL that associates values to parameters and can be a valuable indicator of web shell activity?
+
+    The answer is `Query String`.
+
+2. What auditd syscall would confirm that a file was written to disk following a suspicious POST request to /upload.php?
+
+    The answer is `creat`. 
+
+### Beyond Logs
+1. What command would you use to locate .php files in the /var/www/ directory?
+
+    The answer is `find /var/www/ -type f -name "*.php"`.
+
+2. Which Wireshark filter would you use to search specifically for PUT requests?
+
+    The answer is `http.request.method == "PUT"`.
+
+### Investigation
+1. Which IP address likely belongs to the attacker?
+
+    We can use this command to filter `php` result:
+
+    ```bash
+    cat /var/log/apache2/access.log | grep php
+    ```
+    Then, we can look for the IP address that is making suspicious requests like repeated GET requests with `404` response code and suspicious User-Agent. The answer is `203.0.113.66`.
+
+2. What is the first directory that the attacker successfully identifies?
+
+    We can filter to the attacker's IP address and look for the first successful request with `200` response code:
+
+    ```bash
+    cat /var/log/apache2/access.log | grep 203.0.113.66 | grep 200
+    ```
+    The answer is `/wordpress`.
+
+3. What is the name of the .php file the attacker uses to upload the web shell?
+
+    We can filter to the attacker's IP address, POST method, word "wordpress", and ".php" in the URL:
+
+    ```bash
+    cat /var/log/apache2/access.log | grep 203.0.113.66 | grep wordpress | grep php | grep POST
+    ```
+    The answer is `upload_form.php`.
+
+4. What is the first command run by the attacker using the newly uploaded web shell?
+
+    We can filter to the attacker's IP address, `.php` file extension, and `cmd` parameter in the query string:
+
+    ```bash
+    cat /var/log/apache2/access.log | grep 203.0.113.66 | grep wordpress | grep php | grep cmd 
+    ```
+    Then, we can look for the first command in the query string. The answer is `whoami`.
+
+5. After gaining access via the web shell, the attacker uses a command to download a second file onto the server. What is the name of this file?
+
+    We can use the previous filter and look for the second command in the query string that includes a file download command like `wget` or `curl`. In this case, the attacker used `wget` to download the file. The answer is `linpeas.sh`.
+
+6. The attacker has hidden a secret within the web shell. Use cat to investigate the web shell code and find the flag.
+
+    First, we can use `find` command to locate the web shell file:
+
+    ```bash
+    find / -name "shadyshell.php" 2>/dev/null
+    ```
+    Then, we can use `cat` command to read the contents of the web shell file:
+
+    ```bash
+    cat /var/www/html/wordpress/wp-content/uploads/shadyshell.php
+    ```
+    The answer is `THM{W3b_Sh3ll_Int3rnals}`.
